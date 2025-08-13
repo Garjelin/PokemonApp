@@ -1,4 +1,4 @@
-package com.example.pokemonapp.presentation.theme
+package com.example.pokemonapp.presentation.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

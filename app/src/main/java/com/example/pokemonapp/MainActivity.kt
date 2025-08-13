@@ -7,13 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.pokemonapp.presentation.theme.PokemonAppTheme
+import com.example.pokemonapp.presentation.ui.screens.PokemonListScreen
+import com.example.pokemonapp.presentation.ui.theme.PokemonAppTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,7 +26,8 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     NavHost(navController = navController, startDestination = "pokemon_list") {
                         composable("pokemon_list") {
-                            Text("Welcome to PokeApp - Pokemon List Screen") // Временный плейсхолдер
+//                            Text("Welcome to PokeApp - Pokemon List Screen")
+                            PokemonListScreen()// Временный плейсхолдер
                         }
                         // Добавим другие маршруты позже
                     }
