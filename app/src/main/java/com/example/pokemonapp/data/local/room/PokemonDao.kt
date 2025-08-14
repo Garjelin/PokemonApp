@@ -14,6 +14,9 @@ interface PokemonDao {
     @Query("SELECT * FROM pokemon")
     fun getAll(): Flow<List<PokemonEntity>>
 
+    @Query("SELECT * FROM pokemon")
+    suspend fun getAllSync(): List<PokemonEntity>
+
     @Query("SELECT * FROM pokemon WHERE name LIKE :query")
     fun getByName(query: String): Flow<List<PokemonEntity>>
 
