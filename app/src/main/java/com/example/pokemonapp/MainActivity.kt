@@ -26,7 +26,6 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     NavHost(navController = navController, startDestination = "pokemon_list") {
                         composable("pokemon_list") {
-//                            Text("Welcome to PokeApp - Pokemon List Screen")
                             PokemonListScreen()// Временный плейсхолдер
                         }
                         // Добавим другие маршруты позже
