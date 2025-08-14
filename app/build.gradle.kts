@@ -82,6 +82,7 @@ dependencies {
 
     // Для SwipeRefresh
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.34.0")
 
     // Тесты
     testImplementation(libs.junit)

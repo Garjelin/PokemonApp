@@ -43,7 +43,6 @@ class PokemonListViewModel(context: Context) : ViewModel() {
 
     private fun fetchPokemons() {
         viewModelScope.launch {
-            _isRefreshing.value = true
             try {
                 getPokemonsUseCase().cachedIn(viewModelScope).collectLatest { pagingData ->
                     Log.d("PokemonListViewModel", "Received new PagingData")
@@ -53,8 +52,6 @@ class PokemonListViewModel(context: Context) : ViewModel() {
             } catch (e: Exception) {
                 Log.e("PokemonListViewModel", "Error fetching pokemons: ${e.message}")
                 _error.value = "Failed to load pokemons: ${e.message}"
-            } finally {
-                _isRefreshing.value = false
             }
         }
     }
@@ -63,7 +60,12 @@ class PokemonListViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
+                // Инвалидировать текущий PagingSource
+                _pokemonList.value = PagingData.empty() // Очистить текущие данные
                 fetchPokemons()
+            } catch (e: Exception) {
+                Log.e("PokemonListViewModel", "Error refreshing pokemons: ${e.message}")
+                _error.value = "Failed to refresh pokemons: ${e.message}"
             } finally {
                 _isRefreshing.value = false
             }

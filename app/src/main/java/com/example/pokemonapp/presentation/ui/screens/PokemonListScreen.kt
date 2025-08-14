@@ -3,6 +3,7 @@ package com.example.pokemonapp.presentation.ui.screens
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -38,102 +39,51 @@ import androidx.paging.compose.itemKey
 import com.example.pokemonapp.presentation.viewmodels.PokemonListViewModel
 import java.io.IOException
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.paging.compose.LazyPagingItems
 import coil.compose.AsyncImage
 import com.example.pokemonapp.domain.models.Pokemon
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.SwipeRefreshState
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import androidx.paging.compose.itemKey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = PokemonListViewModelFactory(LocalContext.current))) {
     val pokemonList = viewModel.pokemonList.collectAsLazyPagingItems()
     val error = viewModel.error.collectAsState().value
-    val coroutineScope = rememberCoroutineScope()
     val isRefreshing = viewModel.isRefreshing.collectAsState().value
-    val pullRefreshState = rememberPullToRefreshState()
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
-        onRefresh = {
-            coroutineScope.launch {
-                pokemonList.refresh()
-                viewModel.refresh()
-            }
-        },
-        state = pullRefreshState,
+        onRefresh = { viewModel.refresh() },
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            when (val refreshState = pokemonList.loadState.refresh) {
-                is LoadState.Error -> {
-                    Text(
-                        text = if (refreshState.error is IOException) {
-                            "No internet connection. No data available offline."
-                        } else {
-                            "Error: ${refreshState.error.message}"
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                is LoadState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(16.dp)
-                    )
-                }
-                is LoadState.NotLoading -> {
-                    if (error != null) {
-                        Text(
-                            text = "Error: $error",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(
-                            count = pokemonList.itemCount,
-                            key = pokemonList.itemKey { it.id },
-                            contentType = pokemonList.itemContentType { "pokemon" }
-                        ) { index ->
-                            val pokemon = pokemonList[index]
-                            pokemon?.let {
-                                PokemonItem(pokemon = it)
-                            }
-                        }
-                    }
-                }
+        when (val refreshState = pokemonList.loadState.refresh) {
+            is LoadState.Error -> {
+                ErrorView(
+                    error = refreshState.error,
+                    modifier = Modifier.fillMaxSize(),
+                    onRetry = { viewModel.refresh() }
+                )
             }
-            // Обработка LoadState.append для пагинации
-            when (val appendState = pokemonList.loadState.append) {
-                is LoadState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(16.dp)
-                    )
-                }
-                is LoadState.Error -> {
-                    Text(
-                        text = "Failed to load more: ${appendState.error.message}",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                is LoadState.NotLoading -> {
-                    // Ничего не делаем
+            is LoadState.Loading -> {
+                LoadingIndicator(Modifier.fillMaxSize())
+            }
+            is LoadState.NotLoading -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (error != null) {
+                        ErrorText(error)
+                    }
+                    PokemonGrid(pokemonList)
+
+                    if (pokemonList.loadState.append is LoadState.Loading) {
+                        LoadingIndicator()
+                    }
                 }
             }
         }
@@ -141,7 +91,29 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
 }
 
 @Composable
-fun PokemonItem(pokemon: Pokemon) {
+private fun PokemonGrid(pokemonList: androidx.paging.compose.LazyPagingItems<Pokemon>) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(
+            count = pokemonList.itemCount,
+            key = pokemonList.itemKey { it.id },
+            contentType = pokemonList.itemContentType { "pokemon" }
+        ) { index ->
+            val pokemon = pokemonList[index]
+            pokemon?.let {
+                PokemonItem(pokemon = it)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PokemonItem(pokemon: Pokemon) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -169,6 +141,52 @@ fun PokemonItem(pokemon: Pokemon) {
             )
         }
     }
+}
+
+@Composable
+private fun LoadingIndicator(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun ErrorView(error: Throwable, modifier: Modifier = Modifier, onRetry: () -> Unit) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = if (error is IOException) {
+                    "No internet connection"
+                } else {
+                    "Error: ${error.message}"
+                },
+                modifier = Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.error
+            )
+            androidx.compose.material3.Button(onClick = onRetry) {
+                Text("Retry")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorText(error: String) {
+    Text(
+        text = "Error: $error",
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        color = MaterialTheme.colorScheme.error
+    )
 }
 
 class PokemonListViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
