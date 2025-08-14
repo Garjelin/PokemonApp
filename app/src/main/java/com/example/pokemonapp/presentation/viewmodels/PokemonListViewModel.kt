@@ -4,8 +4,10 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.LoadState
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import androidx.paging.map
 import com.example.pokemonapp.data.local.room.DatabaseProvider
 import com.example.pokemonapp.data.remote.api.ApiClient
 import com.example.pokemonapp.data.remote.api.ApiService
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 class PokemonListViewModel(context: Context) : ViewModel() {
     private val _pokemonList = MutableStateFlow<PagingData<Pokemon>>(PagingData.empty())
@@ -23,6 +26,9 @@ class PokemonListViewModel(context: Context) : ViewModel() {
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing
 
     private val repository = PokemonRepositoryImpl(
         apiService = ApiClient.retrofit.create(ApiService::class.java),
@@ -35,11 +41,31 @@ class PokemonListViewModel(context: Context) : ViewModel() {
         fetchPokemons()
     }
 
-    fun fetchPokemons() {
+    private fun fetchPokemons() {
         viewModelScope.launch {
-            getPokemonsUseCase().cachedIn(viewModelScope).collectLatest { pagingData ->
-                Log.d("PokemonListViewModel", "Received new PagingData")
-                _pokemonList.value = pagingData
+            _isRefreshing.value = true
+            try {
+                getPokemonsUseCase().cachedIn(viewModelScope).collectLatest { pagingData ->
+                    Log.d("PokemonListViewModel", "Received new PagingData")
+                    _pokemonList.value = pagingData
+                    _error.value = null
+                }
+            } catch (e: Exception) {
+                Log.e("PokemonListViewModel", "Error fetching pokemons: ${e.message}")
+                _error.value = "Failed to load pokemons: ${e.message}"
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                fetchPokemons()
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }
