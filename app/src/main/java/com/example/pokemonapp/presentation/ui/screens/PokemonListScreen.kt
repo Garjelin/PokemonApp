@@ -48,7 +48,6 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
     val error = viewModel.error.collectAsState().value
     val isRefreshing = viewModel.isRefreshing.collectAsState().value
 
-    // Состояние для SwipeRefresh
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
 
     SwipeRefresh(
@@ -72,9 +71,19 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                         if (error != null) {
                             ErrorText(error)
                         }
-                        PokemonGrid(pokemonList)
-                        if (pokemonList.loadState.append is LoadState.Loading) {
-                            LoadingIndicator() // Индикатор для подгрузки внизу
+
+                        // Основной контент с возможностью подгрузки
+                        Box(modifier = Modifier.weight(1f)) {
+                            PokemonGrid(pokemonList)
+
+                            // Индикатор подгрузки внизу списка
+                            if (pokemonList.loadState.append is LoadState.Loading) {
+                                LoadingIndicator(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(16.dp)
+                                )
+                            }
                         }
                     }
                 }
