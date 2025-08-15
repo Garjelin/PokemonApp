@@ -14,6 +14,8 @@ import com.example.pokemonapp.data.remote.api.ApiService
 import com.example.pokemonapp.domain.models.Pokemon
 import com.example.pokemonapp.domain.repository.PokemonRepositoryImpl
 import com.example.pokemonapp.domain.usecases.GetPokemonsUseCase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -37,21 +39,26 @@ class PokemonListViewModel(context: Context) : ViewModel() {
 
     private val getPokemonsUseCase = GetPokemonsUseCase(repository)
 
+    private var fetchJob: Job? = null
+
     init {
         fetchPokemons()
     }
 
     private fun fetchPokemons() {
-        viewModelScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             try {
                 getPokemonsUseCase().cachedIn(viewModelScope).collectLatest { pagingData ->
                     Log.d("PokemonListViewModel", "Received new PagingData")
                     _pokemonList.value = pagingData
                     _error.value = null
+                    _isRefreshing.value = false // Сбрасываем после получения данных
                 }
             } catch (e: Exception) {
                 Log.e("PokemonListViewModel", "Error fetching pokemons: ${e.message}")
                 _error.value = "Failed to load pokemons: ${e.message}"
+                _isRefreshing.value = false
             }
         }
     }
@@ -59,16 +66,8 @@ class PokemonListViewModel(context: Context) : ViewModel() {
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            try {
-                // Инвалидировать текущий PagingSource
-                _pokemonList.value = PagingData.empty() // Очистить текущие данные
-                fetchPokemons()
-            } catch (e: Exception) {
-                Log.e("PokemonListViewModel", "Error refreshing pokemons: ${e.message}")
-                _error.value = "Failed to refresh pokemons: ${e.message}"
-            } finally {
-                _isRefreshing.value = false
-            }
+            _pokemonList.value = PagingData.empty() // Очистка текущих данных
+            fetchPokemons()
         }
     }
 }

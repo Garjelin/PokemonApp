@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.Card
@@ -21,10 +20,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,18 +36,10 @@ import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.example.pokemonapp.presentation.viewmodels.PokemonListViewModel
 import java.io.IOException
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
-import androidx.paging.compose.LazyPagingItems
 import coil.compose.AsyncImage
 import com.example.pokemonapp.domain.models.Pokemon
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.SwipeRefreshState
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
-import androidx.paging.compose.itemKey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,31 +48,34 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
     val error = viewModel.error.collectAsState().value
     val isRefreshing = viewModel.isRefreshing.collectAsState().value
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = { viewModel.refresh() },
-        modifier = Modifier.fillMaxSize()
-    ) {
-        when (val refreshState = pokemonList.loadState.refresh) {
-            is LoadState.Error -> {
-                ErrorView(
-                    error = refreshState.error,
-                    modifier = Modifier.fillMaxSize(),
-                    onRetry = { viewModel.refresh() }
-                )
-            }
-            is LoadState.Loading -> {
-                LoadingIndicator(Modifier.fillMaxSize())
-            }
-            is LoadState.NotLoading -> {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    if (error != null) {
-                        ErrorText(error)
-                    }
-                    PokemonGrid(pokemonList)
+    // Состояние для SwipeRefresh
+    val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
 
-                    if (pokemonList.loadState.append is LoadState.Loading) {
-                        LoadingIndicator()
+    SwipeRefresh(
+        state = swipeRefreshState,
+        onRefresh = { viewModel.refresh() }
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (val refreshState = pokemonList.loadState.refresh) {
+                is LoadState.Error -> {
+                    ErrorView(
+                        error = refreshState.error,
+                        modifier = Modifier.fillMaxSize(),
+                        onRetry = { viewModel.refresh() }
+                    )
+                }
+                is LoadState.Loading -> {
+                    LoadingIndicator(Modifier.fillMaxSize())
+                }
+                is LoadState.NotLoading -> {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (error != null) {
+                            ErrorText(error)
+                        }
+                        PokemonGrid(pokemonList)
+                        if (pokemonList.loadState.append is LoadState.Loading) {
+                            LoadingIndicator() // Индикатор для подгрузки внизу
+                        }
                     }
                 }
             }
@@ -150,7 +143,10 @@ private fun LoadingIndicator(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .size(64.dp) // Увеличим размер до 64.dp для видимости
+                .padding(16.dp),
+            strokeWidth = 10.dp // Утолщаем линию для лучшей видимости
         )
     }
 }
