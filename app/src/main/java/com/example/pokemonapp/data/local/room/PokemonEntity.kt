@@ -9,14 +9,20 @@ data class PokemonEntity(
     @PrimaryKey val id: Int,
     val name: String,
     val imageUrl: String,
-    val types: String // Храним как строку, разделенную запятыми, например: "grass,poison"
+    val types: String, // Храним как строку, разделенную запятыми, например: "grass,poison"
+    val hp: Int,
+    val attack: Int,
+    val defense: Int
 ) {
     // Конвертация в domain модель
     fun toPokemon() = Pokemon(
         id = id,
         name = name,
         imageUrl = imageUrl,
-        types = types.split(",").filter { it.isNotEmpty() }
+        types = types.split(",").filter { it.isNotEmpty() },
+        hp = hp,
+        attack = attack,
+        defense = defense
     )
 
     companion object {
@@ -25,7 +31,10 @@ data class PokemonEntity(
             id = pokemon.id,
             name = pokemon.name,
             imageUrl = pokemon.imageUrl,
-            types = pokemon.types.joinToString(",")
+            types = pokemon.types.joinToString(","),
+            hp = pokemon.hp,
+            attack = pokemon.attack,
+            defense = pokemon.defense
         )
     }
 }

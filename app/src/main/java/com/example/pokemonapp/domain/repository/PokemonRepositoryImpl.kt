@@ -43,6 +43,103 @@ class PokemonRepositoryImpl(
             entities.map { it.toPokemon() }
         }
     }
+
+    fun getSortedPokemons(
+        criteria: String,
+        ascending: Boolean
+    ): Flow<PagingData<Pokemon>> {
+        return Pager(
+            config = PagingConfig(
+                pageSize = 20,
+                initialLoadSize = 60,
+                enablePlaceholders = false
+            ),
+            pagingSourceFactory = {
+                PokemonSortedPagingSource(apiService, pokemonDao, criteria, ascending)
+            }
+        ).flow
+    }
+}
+
+class PokemonSortedPagingSource(
+    private val apiService: ApiService,
+    private val pokemonDao: PokemonDao,
+    private val criteria: String,
+    private val ascending: Boolean
+) : PagingSource<Int, Pokemon>() {
+
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Pokemon> {
+        val page = params.key ?: 0
+        val limit = params.loadSize
+        val offset = if (page == 0 && params.loadSize == 60) 0 else page * 20
+        return try {
+            val response = apiService.getPokemonList(limit = limit, offset = offset)
+            val pokemons = response.results.mapIndexed { index, item ->
+                val id = offset + index + 1
+                val details = apiService.getPokemonDetails(id)
+                val stats = details.stats.associate { it.stat.name to it.base_stat }
+                Pokemon(
+                    id = id,
+                    name = item.name,
+                    imageUrl = details.sprites.front_default,
+                    types = details.types.map { it.type.name },
+                    hp = stats["hp"] ?: 0,
+                    attack = stats["attack"] ?: 0,
+                    defense = stats["defense"] ?: 0
+                )
+            }
+            pokemonDao.insertAll(pokemons.map { PokemonEntity.fromPokemon(it) })
+
+            val sortedPokemons = pokemonDao.getAllSync().let { entities ->
+                when (criteria) {
+                    "Number" -> entities.sortedBy { it.id }
+                    "Name" -> entities.sortedBy { it.name }
+                    "HP" -> entities.sortedBy { it.hp }
+                    "Attack" -> entities.sortedBy { it.attack }
+                    "Defence" -> entities.sortedBy { it.defense }
+                    else -> entities
+                }.let { if (!ascending) it.reversed() else it }
+            }.map { it.toPokemon() }
+
+            val start = page * limit
+            val end = (page + 1) * limit
+            val pagedData = sortedPokemons.subList(
+                start.coerceAtLeast(0),
+                end.coerceAtMost(sortedPokemons.size)
+            )
+
+            LoadResult.Page(
+                data = pagedData,
+                prevKey = if (page == 0) null else page - 1,
+                nextKey = if (end >= sortedPokemons.size) null else page + 1
+            )
+        } catch (e: IOException) {
+            val cached = pokemonDao.getAllSync().let { entities ->
+                when (criteria) {
+                    "Number" -> entities.sortedBy { it.id }
+                    "Name" -> entities.sortedBy { it.name }
+                    "HP" -> entities.sortedBy { it.hp }
+                    "Attack" -> entities.sortedBy { it.attack }
+                    "Defence" -> entities.sortedBy { it.defense }
+                    else -> entities
+                }.let { if (!ascending) it.reversed() else it }
+            }.map { it.toPokemon() }
+            LoadResult.Page(
+                data = cached,
+                prevKey = null,
+                nextKey = null
+            )
+        } catch (e: Exception) {
+            LoadResult.Error(e)
+        }
+    }
+
+    override fun getRefreshKey(state: PagingState<Int, Pokemon>): Int? {
+        return state.anchorPosition?.let { anchorPosition ->
+            state.closestPageToPosition(anchorPosition)?.prevKey?.plus(1)
+                ?: state.closestPageToPosition(anchorPosition)?.nextKey?.minus(1)
+        }
+    }
 }
 
 class PokemonPagingSource(
@@ -66,11 +163,15 @@ class PokemonPagingSource(
                     Log.e("PokemonPagingSource", "Failed to fetch details for ${item.name}: ${e.message}")
                     null
                 }
+                val stats = details?.stats?.associate { it.stat.name to it.base_stat } ?: emptyMap()
                 Pokemon(
                     id = id,
                     name = item.name,
                     imageUrl = details?.sprites?.front_default ?: "",
-                    types = details?.types?.map { it.type.name } ?: emptyList()
+                    types = details?.types?.map { it.type.name } ?: emptyList(),
+                    hp = stats["hp"] ?: 0,
+                    attack = stats["attack"] ?: 0,
+                    defense = stats["defense"] ?: 0
                 )
             }
             // Сохраняем в Room
@@ -83,19 +184,12 @@ class PokemonPagingSource(
             )
         } catch (e: IOException) {
             Log.e("PokemonPagingSource", "Network error: ${e.message}")
-            // Загружаем из Room
-            val cached = pokemonDao.getAllSync()
-            if (cached.isNotEmpty()) {
-                Log.d("PokemonPagingSource", "Loaded ${cached.size} pokemons from Room")
-                LoadResult.Page(
-                    data = cached.map { it.toPokemon() },
-                    prevKey = null,
-                    nextKey = null // Ограничиваем пагинацию в оффлайн
-                )
-            } else {
-                Log.w("PokemonPagingSource", "Room cache is empty")
-                LoadResult.Error(e)
-            }
+            val cached = pokemonDao.getAllSync().map { it.toPokemon() }
+            LoadResult.Page(
+                data = cached,
+                prevKey = null,
+                nextKey = null
+            )
         } catch (e: Exception) {
             Log.e("PokemonPagingSource", "API error: ${e.message}")
             LoadResult.Error(e)

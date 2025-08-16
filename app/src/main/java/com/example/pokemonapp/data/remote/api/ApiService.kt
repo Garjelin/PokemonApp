@@ -34,7 +34,8 @@ data class PokemonDetailsResponse(
     val id: Int,
     val name: String,
     val sprites: Sprites,
-    val types: List<TypeEntry>
+    val types: List<TypeEntry>,
+    val stats: List<StatEntry>
 )
 
 data class Sprites(
@@ -56,4 +57,13 @@ data class PokemonTypeResponse(
 data class NamedApiResource(
     val name: String,
     val url: String
+)
+
+data class StatEntry(
+    val base_stat: Int,
+    val stat: Stat
+)
+
+data class Stat(
+    val name: String
 )

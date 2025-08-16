@@ -107,4 +107,22 @@ class PokemonListViewModel(context: Context) : ViewModel() {
             fetchPokemons()
         }
     }
+
+    fun sortPokemons(criteria: String, direction: String) {
+        val ascending = direction == "ascending"
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
+            try {
+                val flow = repository.getSortedPokemons(criteria, ascending)
+                flow.cachedIn(viewModelScope).collectLatest { pagingData ->
+                    _pokemonList.value = pagingData
+                    _error.value = null
+                    _isRefreshing.value = false
+                }
+            } catch (e: Exception) {
+                _error.value = "Failed to sort pokemons: ${e.message}"
+                _isRefreshing.value = false
+            }
+        }
+    }
 }

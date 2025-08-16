@@ -2,10 +2,12 @@ package com.example.pokemonapp.presentation.ui.screens
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -136,14 +139,81 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                 skipPartiallyExpanded = false // Позволяет свайп вниз
             )
         ) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 2 / 3) // 2/3 экрана
+                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 2 / 3)
+                    .padding(16.dp)
             ) {
-                // Пустое содержимое шторки (наполним позже)
+                Text(
+                    text = "Sort by",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                var selectedSortCriteria = remember { mutableStateOf("Number") }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("Number", "Name", "HP", "Attack", "Defence").forEach { criterion ->
+                        FilterTab(
+                            text = criterion,
+                            isSelected = selectedSortCriteria.value == criterion,
+                            onClick = { selectedSortCriteria.value = criterion }
+                        )
+                    }
+                }
+                var selectedSortDirection = remember { mutableStateOf("ascending") }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf("ascending", "descending").forEach { direction ->
+                        FilterTab(
+                            text = direction,
+                            isSelected = selectedSortDirection.value == direction,
+                            onClick = { selectedSortDirection.value = direction }
+                        )
+                    }
+                }
+                Button(
+                    onClick = {
+                        viewModel.sortPokemons(selectedSortCriteria.value, selectedSortDirection.value)
+                        showFilterSheet.value = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
+                    Text("APPLY")
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun FilterTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(4.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isSelected) 8.dp else 4.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(8.dp),
+            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
