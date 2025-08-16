@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
@@ -30,9 +32,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight.Companion.Bold
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -67,8 +72,8 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
     val searchQuery = viewModel.searchQuery.collectAsState(initial = "")
     var showFilterSheet = remember { mutableStateOf(false) }
 
-    var selectedSortCriteria = rememberSaveable { mutableStateOf("Number") }
-    var selectedSortDirection = rememberSaveable { mutableStateOf("ascending") }
+    val selectedSortCriteria = viewModel.sortCriteria.collectAsState()
+    val selectedSortDirection = viewModel.sortDirection.collectAsState()
 
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
 
@@ -149,11 +154,19 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 2 / 3)
                     .padding(16.dp)
             ) {
-                Text(
-                    text = "Sort by",
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Text(
+                        text = "Sort by",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = Bold
+                        ),
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -164,23 +177,32 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                         FilterTab(
                             text = criterion,
                             isSelected = selectedSortCriteria.value == criterion,
-                            onClick = { selectedSortCriteria.value = criterion }
+                            onClick = { viewModel._sortCriteria.value = criterion }
                         )
                     }
                 }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                        .padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    listOf("ascending", "descending").forEach { direction ->
-                        FilterTab(
-                            text = direction,
-                            isSelected = selectedSortDirection.value == direction,
-                            onClick = { selectedSortDirection.value = direction }
-                        )
-                    }
+                    Text(
+                        text = "Ascending",
+                        modifier = Modifier.padding(start = 8.dp, end = 8.dp)
+                    )
+                    Switch(
+                        checked = selectedSortDirection.value == "descending",
+                        onCheckedChange = { isDescending ->
+                            viewModel._sortDirection.value = if (isDescending) "descending" else "ascending"
+                        },
+                        modifier = Modifier.padding(start = 8.dp, end = 8.dp)
+                    )
+                    Text(
+                        text = "Descending",
+                        modifier = Modifier.padding(start = 8.dp, end = 8.dp)
+                    )
                 }
                 Button(
                     onClick = {
@@ -204,9 +226,6 @@ private fun FilterTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clickable(onClick = onClick)
             .padding(4.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 8.dp else 4.dp
-        ),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
         )

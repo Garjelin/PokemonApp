@@ -71,66 +71,93 @@ class PokemonSortedPagingSource(
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Pokemon> {
         val page = params.key ?: 0
         val limit = params.loadSize
-        val offset = if (page == 0 && params.loadSize == 60) 0 else page * 20
+        val offset = page * limit
+
+        // PokeAPI ограничивает offset 100, поэтому используем другой подход
+        if (offset >= 100) {
+            return LoadResult.Page(
+                data = emptyList(),
+                prevKey = page - 1,
+                nextKey = null
+            )
+        }
+
         return try {
+            Log.d("PokemonSortedPaging", "Loading page $page, limit $limit, offset $offset")
+
+            // 1. Загружаем данные с API
             val response = apiService.getPokemonList(limit = limit, offset = offset)
-            val pokemons = response.results.mapIndexed { index, item ->
+            val pokemons = response.results.mapIndexed { index, result ->
                 val id = offset + index + 1
+                Log.d("PokemonPaging", "Fetching details for ${result.name}, id: $id")
                 val details = apiService.getPokemonDetails(id)
-                val stats = details.stats.associate { it.stat.name to it.base_stat }
                 Pokemon(
                     id = id,
-                    name = item.name,
+                    name = result.name,
                     imageUrl = details.sprites.front_default,
                     types = details.types.map { it.type.name },
-                    hp = stats["hp"] ?: 0,
-                    attack = stats["attack"] ?: 0,
-                    defense = stats["defense"] ?: 0
+                    hp = details.stats.find { it.stat.name == "hp" }?.base_stat ?: 0,
+                    attack = details.stats.find { it.stat.name == "attack" }?.base_stat ?: 0,
+                    defense = details.stats.find { it.stat.name == "defense" }?.base_stat ?: 0
                 )
             }
+
+            // 2. Сохраняем в базу
             pokemonDao.insertAll(pokemons.map { PokemonEntity.fromPokemon(it) })
 
-            val sortedPokemons = pokemonDao.getAllSync().let { entities ->
-                when (criteria) {
-                    "Number" -> entities.sortedBy { it.id }
-                    "Name" -> entities.sortedBy { it.name }
-                    "HP" -> entities.sortedBy { it.hp }
-                    "Attack" -> entities.sortedBy { it.attack }
-                    "Defence" -> entities.sortedBy { it.defense }
-                    else -> entities
-                }.let { if (!ascending) it.reversed() else it }
-            }.map { it.toPokemon() }
+            // 3. Получаем ВСЕ данные из кэша для сортировки
+            val allPokemons = pokemonDao.getAllSync().map { it.toPokemon() }
 
+            // 4. Сортируем все данные
+            val sorted = when (criteria) {
+                "Number" -> allPokemons.sortedBy { it.id }
+                "Name" -> allPokemons.sortedBy { it.name }
+                "HP" -> allPokemons.sortedBy { it.hp }
+                "Attack" -> allPokemons.sortedBy { it.attack }
+                "Defence" -> allPokemons.sortedBy { it.defense }
+                else -> allPokemons
+            }.let { if (!ascending) it.reversed() else it }
+
+            // 5. Пагинация по отсортированным данным
             val start = page * limit
             val end = (page + 1) * limit
-            val pagedData = sortedPokemons.subList(
-                start.coerceAtLeast(0),
-                end.coerceAtMost(sortedPokemons.size)
-            )
+            val pagedData = if (start < sorted.size) {
+                sorted.subList(start, end.coerceAtMost(sorted.size))
+            } else {
+                emptyList()
+            }
 
             LoadResult.Page(
                 data = pagedData,
                 prevKey = if (page == 0) null else page - 1,
-                nextKey = if (end >= sortedPokemons.size) null else page + 1
+                nextKey = if (end >= sorted.size || offset + limit >= 100) null else page + 1
             )
-        } catch (e: IOException) {
-            val cached = pokemonDao.getAllSync().let { entities ->
-                when (criteria) {
-                    "Number" -> entities.sortedBy { it.id }
-                    "Name" -> entities.sortedBy { it.name }
-                    "HP" -> entities.sortedBy { it.hp }
-                    "Attack" -> entities.sortedBy { it.attack }
-                    "Defence" -> entities.sortedBy { it.defense }
-                    else -> entities
-                }.let { if (!ascending) it.reversed() else it }
-            }.map { it.toPokemon() }
-            LoadResult.Page(
-                data = cached,
-                prevKey = null,
-                nextKey = null
-            )
+
         } catch (e: Exception) {
-            LoadResult.Error(e)
+            // Fallback на кэш при ошибке
+            val cached = pokemonDao.getAllSync().map { it.toPokemon() }
+            val sortedCached = when (criteria) {
+                "Number" -> cached.sortedBy { it.id }
+                "Name" -> cached.sortedBy { it.name }
+                "HP" -> cached.sortedBy { it.hp }
+                "Attack" -> cached.sortedBy { it.attack }
+                "Defence" -> cached.sortedBy { it.defense }
+                else -> cached // или можно бросить исключение, если критерий неожиданный
+            }.let { if (!ascending) it.reversed() else it }
+
+            val start = page * limit
+            val end = (page + 1) * limit
+            val pagedData = if (start < sortedCached.size) {
+                sortedCached.subList(start, end.coerceAtMost(sortedCached.size))
+            } else {
+                emptyList()
+            }
+
+            LoadResult.Page(
+                data = pagedData,
+                prevKey = if (page == 0) null else page - 1,
+                nextKey = if (end >= sortedCached.size) null else page + 1
+            )
         }
     }
 

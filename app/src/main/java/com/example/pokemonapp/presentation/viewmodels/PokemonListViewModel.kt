@@ -35,6 +35,12 @@ class PokemonListViewModel(context: Context) : ViewModel() {
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
 
+    val _sortCriteria = MutableStateFlow("Number")
+    val sortCriteria: StateFlow<String> = _sortCriteria
+
+    val _sortDirection = MutableStateFlow("ascending")
+    val sortDirection: StateFlow<String> = _sortDirection
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
@@ -84,7 +90,9 @@ class PokemonListViewModel(context: Context) : ViewModel() {
                         }
                     }.flow.cachedIn(viewModelScope)
                 } else {
-                    getPokemonsUseCase().cachedIn(viewModelScope)
+//                    getPokemonsUseCase()
+                    repository.getSortedPokemons(_sortCriteria.value, _sortDirection.value == "ascending")
+                        .cachedIn(viewModelScope)
                 }
                 flow.collectLatest { pagingData ->
                     Log.d("PokemonListViewModel", "Received new PagingData")
@@ -103,6 +111,8 @@ class PokemonListViewModel(context: Context) : ViewModel() {
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
+            _sortCriteria.value = "Number"
+            _sortDirection.value = "ascending"
             _pokemonList.value = PagingData.empty() // Очистка текущих данных
             fetchPokemons()
         }
@@ -113,6 +123,7 @@ class PokemonListViewModel(context: Context) : ViewModel() {
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
             try {
+//                getPokemonsUseCase()
                 val flow = repository.getSortedPokemons(criteria, ascending)
                 flow.cachedIn(viewModelScope).collectLatest { pagingData ->
                     _pokemonList.value = pagingData
