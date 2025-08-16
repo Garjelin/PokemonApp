@@ -13,6 +13,12 @@ interface ApiService {
 
     @GET("pokemon/{id}")
     suspend fun getPokemonDetails(@Path("id") id: Int): PokemonDetailsResponse
+
+    @GET("type")
+    suspend fun getPokemonTypes(
+        @Query("limit") limit: Int = 100, // Ограничиваем, чтобы получить все типы
+        @Query("offset") offset: Int = 0
+    ): PokemonTypeResponse
 }
 
 data class PokemonListResponse(
@@ -41,4 +47,13 @@ data class TypeEntry(
 
 data class Type(
     val name: String
+)
+
+data class PokemonTypeResponse(
+    val results: List<NamedApiResource>
+)
+
+data class NamedApiResource(
+    val name: String,
+    val url: String
 )

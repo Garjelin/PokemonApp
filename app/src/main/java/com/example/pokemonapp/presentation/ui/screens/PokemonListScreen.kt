@@ -14,15 +14,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SearchBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -49,40 +56,54 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
     val isRefreshing = viewModel.isRefreshing.collectAsState().value
 
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
+    val searchQuery = viewModel.searchQuery.collectAsState(initial = "")
 
-    SwipeRefresh(
-        state = swipeRefreshState,
-        onRefresh = { viewModel.refresh() }
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (val refreshState = pokemonList.loadState.refresh) {
-                is LoadState.Error -> {
-                    ErrorView(
-                        error = refreshState.error,
-                        modifier = Modifier.fillMaxSize(),
-                        onRetry = { viewModel.refresh() }
-                    )
-                }
-                is LoadState.Loading -> {
-                    LoadingIndicator(Modifier.fillMaxSize())
-                }
-                is LoadState.NotLoading -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (error != null) {
-                            ErrorText(error)
-                        }
-
-                        // Основной контент с возможностью подгрузки
-                        Box(modifier = Modifier.weight(1f)) {
-                            PokemonGrid(pokemonList)
-
-                            // Индикатор подгрузки внизу списка
-                            if (pokemonList.loadState.append is LoadState.Loading) {
-                                LoadingIndicator(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .padding(16.dp)
-                                )
+    Scaffold(
+        topBar = {
+            SearchBar(
+                query = searchQuery.value,
+                onQueryChange = { viewModel.updateSearchQuery(it) },
+                onSearch = { viewModel.updateSearchQuery(it) },
+                active = false,
+                onActiveChange = { },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                modifier = Modifier.fillMaxWidth()
+            ) { }
+        }
+    ){ paddingValues ->
+        SwipeRefresh(
+            state = swipeRefreshState,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val refreshState = pokemonList.loadState.refresh) {
+                    is LoadState.Error -> {
+                        ErrorView(
+                            error = refreshState.error,
+                            modifier = Modifier.fillMaxSize(),
+                            onRetry = { viewModel.refresh() }
+                        )
+                    }
+                    is LoadState.Loading -> {
+                        LoadingIndicator(Modifier.fillMaxSize())
+                    }
+                    is LoadState.NotLoading -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            if (error != null) {
+                                ErrorText(error)
+                            }
+                            // Основной контент с возможностью подгрузки
+                            Box(modifier = Modifier.weight(1f)) {
+                                PokemonGrid(pokemonList)
+                                // Индикатор подгрузки внизу списка
+                                if (pokemonList.loadState.append is LoadState.Loading) {
+                                    LoadingIndicator(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .padding(16.dp)
+                                    )
+                                }
                             }
                         }
                     }

@@ -5,7 +5,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.LoadState
+import androidx.paging.Pager
 import androidx.paging.PagingData
+import androidx.paging.PagingState
 import androidx.paging.cachedIn
 import androidx.paging.map
 import com.example.pokemonapp.data.local.room.DatabaseProvider
@@ -19,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.IOException
 
@@ -31,6 +34,9 @@ class PokemonListViewModel(context: Context) : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
 
     private val repository = PokemonRepositoryImpl(
         apiService = ApiClient.retrofit.create(ApiService::class.java),
@@ -45,15 +51,46 @@ class PokemonListViewModel(context: Context) : ViewModel() {
         fetchPokemons()
     }
 
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+        fetchPokemons()
+    }
+
     private fun fetchPokemons() {
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
             try {
-                getPokemonsUseCase().cachedIn(viewModelScope).collectLatest { pagingData ->
+                val flow = if (_searchQuery.value.isNotEmpty()) {
+                    // Преобразуем результат поиска в PagingData
+                    val searchResult = repository.searchPokemons(_searchQuery.value)
+                    Pager(config = androidx.paging.PagingConfig(pageSize = 20)) {
+                        object : androidx.paging.PagingSource<Int, Pokemon>() {
+                            override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Pokemon> {
+                                val page = params.key ?: 0
+                                val start = page * params.loadSize
+                                val end = (page + 1) * params.loadSize
+                                val data = searchResult.first().subList(
+                                    start.coerceAtLeast(0),
+                                    end.coerceAtMost(searchResult.first().size)
+                                )
+                                return LoadResult.Page(
+                                    data = data,
+                                    prevKey = if (page <= 0) null else page - 1,
+                                    nextKey = if (end >= searchResult.first().size) null else page + 1
+                                )
+                            }
+
+                            override fun getRefreshKey(state: PagingState<Int, Pokemon>): Int? = null
+                        }
+                    }.flow.cachedIn(viewModelScope)
+                } else {
+                    getPokemonsUseCase().cachedIn(viewModelScope)
+                }
+                flow.collectLatest { pagingData ->
                     Log.d("PokemonListViewModel", "Received new PagingData")
                     _pokemonList.value = pagingData
                     _error.value = null
-                    _isRefreshing.value = false // Сбрасываем после получения данных
+                    _isRefreshing.value = false
                 }
             } catch (e: Exception) {
                 Log.e("PokemonListViewModel", "Error fetching pokemons: ${e.message}")

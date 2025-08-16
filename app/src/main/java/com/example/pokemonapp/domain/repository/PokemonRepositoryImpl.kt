@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.map
 import java.io.IOException
 
 class PokemonRepositoryImpl(
-    private val apiService: ApiService,
+    val apiService: ApiService,
     private val pokemonDao: PokemonDao
 ) : PokemonRepository {
 
