@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -65,6 +66,9 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
     val isRefreshing = viewModel.isRefreshing.collectAsState().value
     val searchQuery = viewModel.searchQuery.collectAsState(initial = "")
     var showFilterSheet = remember { mutableStateOf(false) }
+
+    var selectedSortCriteria = rememberSaveable { mutableStateOf("Number") }
+    var selectedSortDirection = rememberSaveable { mutableStateOf("ascending") }
 
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isRefreshing)
 
@@ -150,7 +154,6 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
-                var selectedSortCriteria = remember { mutableStateOf("Number") }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -165,7 +168,6 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                         )
                     }
                 }
-                var selectedSortDirection = remember { mutableStateOf("ascending") }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
