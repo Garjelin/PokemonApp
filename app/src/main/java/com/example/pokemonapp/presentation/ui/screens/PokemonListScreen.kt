@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
@@ -143,15 +145,14 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
     // Шторка отображается только при showFilterSheet.value == true
     if (showFilterSheet.value) {
         ModalBottomSheet(
-            onDismissRequest = { showFilterSheet.value = false }, // Сворачивание при клике вне
-            sheetState = rememberModalBottomSheetState(
-                skipPartiallyExpanded = false // Позволяет свайп вниз
-            )
+            onDismissRequest = { showFilterSheet.value = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 2 / 3)
+                    .weight(1f, fill = false)
+                    .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 3 / 4)
                     .padding(16.dp)
             ) {
                 Box(
@@ -161,9 +162,7 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                 ) {
                     Text(
                         text = "Sort by",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = Bold
-                        ),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = Bold),
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -173,7 +172,7 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                         .padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    listOf("Number", "Name", "HP", "Attack", "Defence").forEach { criterion ->
+                    listOf("Number", "Name", "HP", "Attack", "Defense").forEach { criterion ->
                         FilterTab(
                             text = criterion,
                             isSelected = selectedSortCriteria.value == criterion,
@@ -188,10 +187,7 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "Ascending",
-                        modifier = Modifier.padding(start = 8.dp, end = 8.dp)
-                    )
+                    Text(text = "Ascending", modifier = Modifier.padding(start = 8.dp, end = 8.dp))
                     Switch(
                         checked = selectedSortDirection.value == "descending",
                         onCheckedChange = { isDescending ->
@@ -199,14 +195,19 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                         },
                         modifier = Modifier.padding(start = 8.dp, end = 8.dp)
                     )
-                    Text(
-                        text = "Descending",
-                        modifier = Modifier.padding(start = 8.dp, end = 8.dp)
-                    )
+                    Text(text = "Descending", modifier = Modifier.padding(start = 8.dp, end = 8.dp))
                 }
+
+                // Добавляем чипсы фильтров по типу
+                val selectedTypes = viewModel.selectedTypes.collectAsState()
+                TypeFilterChips(
+                    selectedTypes = selectedTypes.value,
+                    onTypeSelected = { viewModel.updateSelectedTypes(it) }
+                )
+
                 Button(
                     onClick = {
-                        viewModel.sortPokemons(selectedSortCriteria.value, selectedSortDirection.value)
+                        viewModel.sortPokemons(viewModel.sortCriteria.value, viewModel.sortDirection.value)
                         showFilterSheet.value = false
                     },
                     modifier = Modifier
@@ -338,6 +339,47 @@ private fun ErrorText(error: String) {
             .padding(16.dp),
         color = MaterialTheme.colorScheme.error
     )
+}
+
+@Composable
+private fun TypeFilterChips(
+    selectedTypes: Set<String>,
+    onTypeSelected: (Set<String>) -> Unit
+) {
+    val allTypes = listOf(
+        "Normal", "Fire", "Water", "Electric", "Grass", "Ice", "Fighting", "Poison",
+        "Ground", "Flying", "Psychic", "Bug", "Rock", "Ghost", "Dragon", "Dark", "Steel", "Fairy"
+    )
+
+    Column {
+        Text(
+            text = "Filter By Type",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = Bold),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp)
+        ) {
+            items(allTypes.size) { index ->
+                val type = allTypes[index]
+                val isSelected = selectedTypes.contains(type)
+                FilterTab(
+                    text = type,
+                    isSelected = isSelected,
+                    onClick = {
+                        val newTypes = if (isSelected) {
+                            selectedTypes - type
+                        } else {
+                            selectedTypes + type
+                        }
+                        onTypeSelected(newTypes)
+                    }
+                )
+            }
+        }
+    }
 }
 
 class PokemonListViewModelFactory(private val context: Context) : ViewModelProvider.Factory {

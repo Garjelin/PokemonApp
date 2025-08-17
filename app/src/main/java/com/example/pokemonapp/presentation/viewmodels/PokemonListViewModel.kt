@@ -24,6 +24,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -49,6 +50,9 @@ class PokemonListViewModel(context: Context) : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
+    private val _selectedTypes = MutableStateFlow<Set<String>>(emptySet())
+    val selectedTypes: StateFlow<Set<String>> = _selectedTypes
+
     private val repository = PokemonRepositoryImpl(
         apiService = ApiClient.retrofit.create(ApiService::class.java),
         pokemonDao = DatabaseProvider.getDatabase(context).pokemonDao()
@@ -72,12 +76,19 @@ class PokemonListViewModel(context: Context) : ViewModel() {
         fetchPokemons()
     }
 
+    fun updateSelectedTypes(types: Set<String>) {
+        _selectedTypes.value = types
+        isSorted = false // Сбрасываем сортировку при фильтрации
+        lastLoadedOffset = 0 // Сбрасываем offset для нового списка
+        fetchPokemons()
+    }
+
     private fun fetchPokemons() {
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
             try {
                 val flow = if (_searchQuery.value.isNotEmpty()) {
-                    // Преобразуем результат поиска в PagingData
+                    // Логика поиска остается без изменений
                     val searchResult = repository.searchPokemons(_searchQuery.value)
                     Pager(config = PagingConfig(pageSize = 20)) {
                         object : PagingSource<Int, Pokemon>() {
@@ -95,24 +106,49 @@ class PokemonListViewModel(context: Context) : ViewModel() {
                                     nextKey = if (end >= searchResult.first().size) null else page + 1
                                 )
                             }
-
                             override fun getRefreshKey(state: PagingState<Int, Pokemon>): Int? = null
                         }
                     }.flow.cachedIn(viewModelScope)
                 } else if (isSorted) {
-                    // Постраничная сортировка из Room
+                    // Логика сортировки остается без изменений
                     Pager(config = PagingConfig(pageSize = 20, initialLoadSize = 60)) {
                         SortedRoomPagingSource(
                             pokemonDao = repository.pokemonDao,
                             criteria = _sortCriteria.value,
                             ascending = _sortDirection.value == "ascending",
-                            onLoadNext = { page ->
-                                launch { loadNextFromApi(page) }
-                            }
+                            onLoadNext = { page -> launch { loadNextFromApi(page) } }
                         )
                     }.flow.cachedIn(viewModelScope)
+                } else if (_selectedTypes.value.isNotEmpty()) {
+                    // Новая логика фильтрации по типу
+                    val filterFlow = _selectedTypes.value.map { type ->
+                        repository.filterPokemonsByType(type)
+                    }.reduce { acc, flow ->
+                        acc.combine(flow) { list1, list2 ->
+                            (list1 + list2).distinctBy { it.id }
+                        }
+                    }
+                    Pager(config = PagingConfig(pageSize = 20)) {
+                        object : PagingSource<Int, Pokemon>() {
+                            override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Pokemon> {
+                                val page = params.key ?: 0
+                                val start = page * params.loadSize
+                                val end = (page + 1) * params.loadSize
+                                val data = filterFlow.first().subList(
+                                    start.coerceAtLeast(0),
+                                    end.coerceAtMost(filterFlow.first().size)
+                                )
+                                return LoadResult.Page(
+                                    data = data,
+                                    prevKey = if (page <= 0) null else page - 1,
+                                    nextKey = if (end >= filterFlow.first().size) null else page + 1
+                                )
+                            }
+                            override fun getRefreshKey(state: PagingState<Int, Pokemon>): Int? = null
+                        }
+                    }.flow.cachedIn(viewModelScope)
                 } else {
-                    // Загружаем данные без сортировки
+                    // Загружаем все покемоны без фильтров
                     getPokemonsUseCase().cachedIn(viewModelScope)
                 }
                 flow.collectLatest { pagingData ->
