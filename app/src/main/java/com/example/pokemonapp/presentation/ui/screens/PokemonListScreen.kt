@@ -152,19 +152,6 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 3 / 4)
                     .padding(16.dp)
             ) {
-                // Кнопка APPLY для сортировки
-                Button(
-                    onClick = {
-                        viewModel.sortPokemons(viewModel.sortCriteria.value, viewModel.sortDirection.value)
-                        showFilterSheet.value = false
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    Text("APPLY")
-                }
-
                 // Заголовок и сортировка
                 Box(
                     modifier = Modifier
@@ -208,7 +195,18 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     )
                     Text(text = "Descending", modifier = Modifier.padding(start = 8.dp, end = 8.dp))
                 }
-
+                // Кнопка APPLY для сортировки
+                Button(
+                    onClick = {
+                        viewModel.sortPokemons(viewModel.sortCriteria.value, viewModel.sortDirection.value)
+                        showFilterSheet.value = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Text("APPLY")
+                }
                 // Чипсы фильтров по типу
                 val selectedTypes = viewModel.selectedTypes.collectAsState()
                 TypeFilterChips(
@@ -354,11 +352,17 @@ private fun TypeFilterChips(
     )
 
     Column {
-        Text(
-            text = "Filter By Type",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = Bold),
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        ) {
+            Text(
+                text = "Filter By Type",
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = Bold),
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
