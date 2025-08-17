@@ -25,4 +25,22 @@ interface PokemonDao {
 
     @Query("DELETE FROM pokemon")
     suspend fun clearAll()
+
+    @Query("SELECT * FROM pokemon ORDER BY CASE :criteria " +
+            "WHEN 'Number' THEN id " +
+            "WHEN 'Name' THEN name " +
+            "WHEN 'HP' THEN hp " +
+            "WHEN 'Attack' THEN attack " +
+            "WHEN 'Defense' THEN defense " +
+            "ELSE id END ASC LIMIT :limit OFFSET :offset")
+    suspend fun getSortedPageAsc(criteria: String, limit: Int, offset: Int): List<PokemonEntity>
+
+    @Query("SELECT * FROM pokemon ORDER BY CASE :criteria " +
+            "WHEN 'Number' THEN id " +
+            "WHEN 'Name' THEN name " +
+            "WHEN 'HP' THEN hp " +
+            "WHEN 'Attack' THEN attack " +
+            "WHEN 'Defense' THEN defense " +
+            "ELSE id END DESC LIMIT :limit OFFSET :offset")
+    suspend fun getSortedPageDesc(criteria: String, limit: Int, offset: Int): List<PokemonEntity>
 }
