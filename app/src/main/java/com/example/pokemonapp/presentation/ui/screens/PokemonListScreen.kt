@@ -100,7 +100,7 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                 modifier = Modifier.fillMaxWidth()
             ) { }
         }
-    ){ paddingValues ->
+    ) { paddingValues ->
         SwipeRefresh(
             state = swipeRefreshState,
             onRefresh = { viewModel.refresh() },
@@ -123,10 +123,8 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                             if (error != null) {
                                 ErrorText(error)
                             }
-                            // Основной контент с возможностью подгрузки
                             Box(modifier = Modifier.weight(1f)) {
                                 PokemonGrid(pokemonList)
-                                // Индикатор подгрузки внизу списка
                                 if (pokemonList.loadState.append is LoadState.Loading) {
                                     LoadingIndicator(
                                         modifier = Modifier
@@ -142,7 +140,6 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
         }
     }
 
-    // Шторка отображается только при showFilterSheet.value == true
     if (showFilterSheet.value) {
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet.value = false },
@@ -155,6 +152,20 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 3 / 4)
                     .padding(16.dp)
             ) {
+                // Кнопка APPLY для сортировки
+                Button(
+                    onClick = {
+                        viewModel.sortPokemons(viewModel.sortCriteria.value, viewModel.sortDirection.value)
+                        showFilterSheet.value = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Text("APPLY")
+                }
+
+                // Заголовок и сортировка
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -198,24 +209,15 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     Text(text = "Descending", modifier = Modifier.padding(start = 8.dp, end = 8.dp))
                 }
 
-                // Добавляем чипсы фильтров по типу
+                // Чипсы фильтров по типу
                 val selectedTypes = viewModel.selectedTypes.collectAsState()
                 TypeFilterChips(
                     selectedTypes = selectedTypes.value,
-                    onTypeSelected = { viewModel.updateSelectedTypes(it) }
+                    onTypeSelected = { types ->
+                        viewModel.updateSelectedTypes(types)
+                        showFilterSheet.value = false // Закрываем шторку при выборе чипсы
+                    }
                 )
-
-                Button(
-                    onClick = {
-                        viewModel.sortPokemons(viewModel.sortCriteria.value, viewModel.sortDirection.value)
-                        showFilterSheet.value = false
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                ) {
-                    Text("APPLY")
-                }
             }
         }
     }
