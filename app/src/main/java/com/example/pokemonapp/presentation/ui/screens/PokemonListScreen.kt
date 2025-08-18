@@ -53,7 +53,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.paging.LoadState
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
@@ -67,7 +69,10 @@ import com.example.pokemonapp.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = PokemonListViewModelFactory(LocalContext.current))) {
+fun PokemonListScreen(
+    navController: NavHostController,
+    viewModel: PokemonListViewModel = viewModel(factory = PokemonListViewModelFactory(LocalContext.current))
+) {
     val pokemonList = viewModel.pokemonList.collectAsLazyPagingItems()
     val error = viewModel.error.collectAsState().value
     val isRefreshing = viewModel.isRefreshing.collectAsState().value
@@ -88,7 +93,7 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                 active = false,
                 onActiveChange = { },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                trailingIcon = { // Добавляем кнопку фильтра
+                trailingIcon = {
                     IconButton(onClick = { showFilterSheet.value = true }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_filter),
@@ -124,7 +129,9 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                                 ErrorText(error)
                             }
                             Box(modifier = Modifier.weight(1f)) {
-                                PokemonGrid(pokemonList)
+                                PokemonGrid(pokemonList = pokemonList) { pokemon ->
+                                    navController.navigate("pokemon_detail/${pokemon.id}/${pokemon.name}")
+                                }
                                 if (pokemonList.loadState.append is LoadState.Loading) {
                                     LoadingIndicator(
                                         modifier = Modifier
@@ -152,7 +159,18 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 3 / 4)
                     .padding(16.dp)
             ) {
-                // Заголовок и сортировка
+                Button(
+                    onClick = {
+                        viewModel.sortPokemons(viewModel.sortCriteria.value, viewModel.sortDirection.value)
+                        showFilterSheet.value = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Text("APPLY")
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -195,25 +213,13 @@ fun PokemonListScreen(viewModel: PokemonListViewModel = viewModel(factory = Poke
                     )
                     Text(text = "Descending", modifier = Modifier.padding(start = 8.dp, end = 8.dp))
                 }
-                // Кнопка APPLY для сортировки
-                Button(
-                    onClick = {
-                        viewModel.sortPokemons(viewModel.sortCriteria.value, viewModel.sortDirection.value)
-                        showFilterSheet.value = false
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    Text("APPLY")
-                }
-                // Чипсы фильтров по типу
+
                 val selectedTypes = viewModel.selectedTypes.collectAsState()
                 TypeFilterChips(
                     selectedTypes = selectedTypes.value,
                     onTypeSelected = { types ->
                         viewModel.updateSelectedTypes(types)
-                        showFilterSheet.value = false // Закрываем шторку при выборе чипсы
+                        showFilterSheet.value = false
                     }
                 )
             }
@@ -240,7 +246,10 @@ private fun FilterTab(text: String, isSelected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PokemonGrid(pokemonList: androidx.paging.compose.LazyPagingItems<Pokemon>) {
+fun PokemonGrid(
+    pokemonList: LazyPagingItems<Pokemon>,
+    onPokemonClick: (Pokemon) -> Unit
+) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxSize(),
@@ -255,17 +264,21 @@ private fun PokemonGrid(pokemonList: androidx.paging.compose.LazyPagingItems<Pok
         ) { index ->
             val pokemon = pokemonList[index]
             pokemon?.let {
-                PokemonItem(pokemon = it)
+                PokemonItem(pokemon = it, onClick = { onPokemonClick(it) })
             }
         }
     }
 }
 
 @Composable
-private fun PokemonItem(pokemon: Pokemon) {
+fun PokemonItem(
+    pokemon: Pokemon,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
