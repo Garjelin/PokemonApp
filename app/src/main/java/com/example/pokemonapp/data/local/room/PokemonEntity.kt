@@ -9,7 +9,7 @@ data class PokemonEntity(
     @PrimaryKey val id: Int,
     val name: String,
     val imageUrl: String,
-    val types: String, // Храним как строку, разделенную запятыми, например: "grass,poison"
+    val types: String,
     val hp: Int,
     val attack: Int,
     val defense: Int

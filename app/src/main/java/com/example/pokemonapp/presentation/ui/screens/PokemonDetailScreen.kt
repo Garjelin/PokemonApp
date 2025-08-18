@@ -2,13 +2,13 @@ package com.example.pokemonapp.presentation.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -34,12 +34,18 @@ fun PokemonDetailScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Кнопка "назад"
-        IconButton(onClick = onBackClick) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                modifier = Modifier.size(24.dp)
-            )
+        Row(
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(bottom = 16.dp)
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         // Изображение
@@ -53,26 +59,28 @@ fun PokemonDetailScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Название
-        Text(
-            text = pokemon.name.replaceFirstChar { it.uppercase() },
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = Bold
-        )
+        Column(
+            horizontalAlignment = Alignment.Start
+        ) {
+            // Название
+            Text(
+                text = pokemon.name.replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = Bold
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        // ID
-        Text(text = "ID: ${pokemon.id}", style = MaterialTheme.typography.bodyLarge)
+            // ID
+            Text(text = "ID: ${pokemon.id}", style = MaterialTheme.typography.bodyLarge)
 
-        // Типы
-        Text(
-            text = "Types: ${pokemon.types.joinToString(", ")}",
-            style = MaterialTheme.typography.bodyLarge
-        )
+            // Типы
+            Text(
+                text = "Types: ${pokemon.types.joinToString(", ")}",
+                style = MaterialTheme.typography.bodyLarge
+            )
 
-        // Характеристики
-        Column {
+            // Характеристики
             Text(text = "HP: ${pokemon.hp}", style = MaterialTheme.typography.bodyLarge)
             Text(text = "Attack: ${pokemon.attack}", style = MaterialTheme.typography.bodyLarge)
             Text(text = "Defense: ${pokemon.defense}", style = MaterialTheme.typography.bodyLarge)

@@ -4,14 +4,12 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.LoadState
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import androidx.paging.cachedIn
-import androidx.paging.map
 import com.example.pokemonapp.data.local.room.DatabaseProvider
 import com.example.pokemonapp.data.remote.api.ApiClient
 import com.example.pokemonapp.data.remote.api.ApiService
@@ -20,7 +18,6 @@ import com.example.pokemonapp.domain.repository.PokemonRepositoryImpl
 import com.example.pokemonapp.domain.repository.SortedRoomPagingSource
 import com.example.pokemonapp.domain.usecases.GetPokemonsUseCase
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -29,7 +26,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.IOException
 
 class PokemonListViewModel(context: Context) : ViewModel() {
     private val _pokemonList = MutableStateFlow<PagingData<Pokemon>>(PagingData.empty())
@@ -61,9 +57,9 @@ class PokemonListViewModel(context: Context) : ViewModel() {
     private val getPokemonsUseCase = GetPokemonsUseCase(repository)
 
     private var fetchJob: Job? = null
-    private var isSorted = false // Флаг для отслеживания, применена ли сортировка
-    private var lastLoadedOffset = 0 // Последний загруженный offset
-    private val loadMutex = Mutex() // Для синхронизации вызовов loadNextFromApi
+    private var isSorted = false
+    private var lastLoadedOffset = 0
+    private val loadMutex = Mutex()
 
     init {
         fetchPokemons()
@@ -71,15 +67,15 @@ class PokemonListViewModel(context: Context) : ViewModel() {
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
-        isSorted = false // Сбрасываем сортировку при новом поиске
-        lastLoadedOffset = 0 // Сбрасываем offset для нового списка
+        isSorted = false
+        lastLoadedOffset = 0
         fetchPokemons()
     }
 
     fun updateSelectedTypes(types: Set<String>) {
         _selectedTypes.value = types
-        isSorted = false // Сбрасываем сортировку при фильтрации
-        lastLoadedOffset = 0 // Сбрасываем offset для нового списка
+        isSorted = false
+        lastLoadedOffset = 0
         fetchPokemons()
     }
 
@@ -88,7 +84,6 @@ class PokemonListViewModel(context: Context) : ViewModel() {
         fetchJob = viewModelScope.launch {
             try {
                 val flow = if (_searchQuery.value.isNotEmpty()) {
-                    // Логика поиска остается без изменений
                     val searchResult = repository.searchPokemons(_searchQuery.value)
                     Pager(config = PagingConfig(pageSize = 20)) {
                         object : PagingSource<Int, Pokemon>() {
@@ -110,7 +105,6 @@ class PokemonListViewModel(context: Context) : ViewModel() {
                         }
                     }.flow.cachedIn(viewModelScope)
                 } else if (isSorted) {
-                    // Логика сортировки остается без изменений
                     Pager(config = PagingConfig(pageSize = 20, initialLoadSize = 60)) {
                         SortedRoomPagingSource(
                             pokemonDao = repository.pokemonDao,
@@ -120,7 +114,6 @@ class PokemonListViewModel(context: Context) : ViewModel() {
                         )
                     }.flow.cachedIn(viewModelScope)
                 } else if (_selectedTypes.value.isNotEmpty()) {
-                    // Новая логика фильтрации по типу
                     val filterFlow = _selectedTypes.value.map { type ->
                         repository.filterPokemonsByType(type)
                     }.reduce { acc, flow ->
@@ -167,17 +160,15 @@ class PokemonListViewModel(context: Context) : ViewModel() {
 
     private suspend fun loadNextFromApi(currentPage: Int) {
         loadMutex.withLock {
-            // Корректный расчёт offset: после 60 идёт 80, 100 и т.д.
             val offset = if (lastLoadedOffset == 0) 0 else lastLoadedOffset
             val limit = if (lastLoadedOffset == 0) 60 else 20
             Log.d("PokemonListViewModel", "Loading from API: page $currentPage, limit $limit, offset $offset")
             try {
                 val pokemons = repository.getPokemonsFromApi(limit, offset)
                 if (pokemons.isNotEmpty()) {
-                    lastLoadedOffset = offset + pokemons.size // Обновляем offset
+                    lastLoadedOffset = offset + pokemons.size
                     Log.d("PokemonListViewModel", "Updated lastLoadedOffset to $lastLoadedOffset")
                     if (isSorted) {
-                        // Перезапускаем fetchPokemons для обновления отсортированного списка
                         fetchPokemons()
                     }
                 }
@@ -193,11 +184,10 @@ class PokemonListViewModel(context: Context) : ViewModel() {
             _isRefreshing.value = true
             _sortCriteria.value = "Number"
             _sortDirection.value = "ascending"
-            _searchQuery.value = "" // Сбрасываем поиск
-            _pokemonList.value = PagingData.empty() // Очистка текущих данных
-            isSorted = false // Сбрасываем сортировку
-            lastLoadedOffset = 0 // Сбрасываем offset
-            // Очищаем базу данных
+            _searchQuery.value = ""
+            _pokemonList.value = PagingData.empty()
+            isSorted = false
+            lastLoadedOffset = 0
             repository.clearCache()
             fetchPokemons()
         }
@@ -208,12 +198,11 @@ class PokemonListViewModel(context: Context) : ViewModel() {
         _sortDirection.value = direction
         viewModelScope.launch {
             try {
-                // Валидация критерия сортировки
                 require(criteria in listOf("Number", "Name", "HP", "Attack", "Defense")) {
                     "Invalid sort criteria: $criteria"
                 }
                 isSorted = true
-                fetchPokemons() // Запускаем подгрузку с сортировкой
+                fetchPokemons()
                 _error.value = null
             } catch (e: Exception) {
                 Log.e("PokemonListViewModel", "Error sorting pokemons: ${e.message}")
@@ -221,6 +210,4 @@ class PokemonListViewModel(context: Context) : ViewModel() {
             }
         }
     }
-
-    fun isSorted(): Boolean = isSorted
 }

@@ -17,7 +17,7 @@ data class Pokemon(
             id = id,
             name = name,
             imageUrl = imageUrl,
-            types = types.joinToString(","), // Преобразуем List<String> в строку для Room
+            types = types.joinToString(","),
             hp = hp,
             attack = attack,
             defense = defense
